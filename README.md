@@ -2,7 +2,7 @@
 An extended Michaelis-Menten model that includes the effect of substrate inhibition (SINH)
 * presenting model definition
 * exemplary usage
-* data demonstrating subtrate inhibition effects for 3 different enzymes (-> kinetics of 3 x 120 deadwood samples)
+* data demonstrating substrate inhibition effects for 3 different enzymes (-> kinetics of 3 x 120 deadwood samples)
 * reproduce findings published in this manuscript:
 
 Zwanzig, M., Nähte, K., Michalzik, B., Tischer, A., An extended Michaelis-Menten model that includes substrate inhibition for improved kinetic description of extracellular hydrolytic enzymes in deadwood. (Submitted to Soil Biology and Biochemistry 2022)
