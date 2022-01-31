@@ -17,7 +17,11 @@ Zwanzig, M., Nähte, K., Michalzik, B., Tischer, A., An extended Michaelis-Mente
 ## /images
 * contains R-scripts creating the subfigures shown in the article mentioned above
 * in addition, previews of these figures are given as pdf files
-* (R-scripts depend on files in /output)
+* (R-scripts depend on files in /output and use relative paths)
+
+## SINH.Rproj
+* R-project file for the SINH project
+* first to open to enable working with relative paths
 
 ## fit_and_evaluate_nls_EHE_models.R
 i) loads the complete data
