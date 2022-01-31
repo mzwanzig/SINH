@@ -33,7 +33,7 @@ Rmax_i <- Rmax(Vmax = coef(mSINH)["Vmax"], Km = coef(mSINH)["Km"], Ki = coef(mSI
 SRmax <- function(Km, Ki){ data.frame(SRmax = sqrt(Km * Ki), row.names = NULL) }
 SRmax_i <- SRmax(Km = coef(mSINH)["Km"], Ki = coef(mSINH)["Ki"]); SRmax_i
 # substrate concentration for half maximum reaction rate: S(Rmax/2)
-SSeqq <- seq(0, as.numeric(SRmax_i), length.out = 10000)
+Sseq <- seq(0, as.numeric(SRmax_i), length.out = 10000)
 SRmax_i_05 <- Sseq[match(TRUE, predict(mSINH, newdata = data.frame(S = Sseq)) > as.numeric(Rmax_i)/2)]; SRmax_i_05
 
 # Compares both models by residual sum of squares
