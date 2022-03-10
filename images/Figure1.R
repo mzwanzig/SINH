@@ -46,7 +46,7 @@ Enzyme <- c("BG","NAG","AP")[3] # define Enzyme
 sampleID <- 78 # define sample ID
 df <- dr[,c("Sample_ID", "Sub_conc", Enzyme)]; names(df)[1] <- "ID"; names(df)[2] <- "S" ; names(df)[3] <- "R"; df$ID <- as.factor(df$ID)
 df_i <- subset(df, ID == sampleID)
-df_i$R <- df_i$R * 1000 # for AP, conversion from micromol to nanomol is required
+df_i$R <- df_i$R
 source("plot_MMandSINH.R")
 p13a <- p2
 p13b <- prMM
@@ -56,7 +56,7 @@ Enzyme <- c("BG","NAG","AP")[3] # define Enzyme
 sampleID <- 114 # define sample ID
 df <- dr[,c("Sample_ID", "Sub_conc", Enzyme)]; names(df)[1] <- "ID"; names(df)[2] <- "S" ; names(df)[3] <- "R"; df$ID <- as.factor(df$ID)
 df_i <- subset(df, ID == sampleID)
-df_i$R <- df_i$R * 1000 # for AP, conversion from micromol to nanomol is required
+df_i$R <- df_i$R
 source("plot_MMandSINH.R")
 p23a <- p2
 p23b <- prMM
