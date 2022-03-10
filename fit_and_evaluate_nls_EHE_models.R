@@ -30,6 +30,11 @@ library(dplyr)
 
 # Self-defined functions ----
 
+# 3-parameter substrate inhibition model
+inh_f <- function(S, Vmax, Km, Ki){
+  R = Vmax * S / (Km + S *(1+S/Ki))  # 3 Parameter Model
+  return(R)
+}
 # ...used to evaluate model performance:
 
 # root mean square error (RMSE)
@@ -75,6 +80,7 @@ for (ddd in 1:3){ # EHE's are analyzed one after the other
   
   # Create subset based on the data of the focal EHE:
   df <- subset(rdf, select = c("Sample_ID", "Sub_conc", enzyme_ddd))
+  df <-  subset <-  df[complete.cases(df),] # consider only observations/rows with complete cases
   # check data:
   str(df)
   names(df) # check names of enzymes and substrate concentration
@@ -82,11 +88,7 @@ for (ddd in 1:3){ # EHE's are analyzed one after the other
   names(df)[2] <- "S" # rename substrate concentration (here in line 2) as "S"
   names(df)[3] <- "R" # rename activity / reaction rate (here in line 3) as "R"
   df$ID <- as.factor(df$ID) # make ID a factor
-  
-  if(enzyme_ddd == "AP"){ # only AP is given in micromol in the database
-    df$R <- df$R * 1000 # conversion from micromol to nanomol
-  }
-  
+
   # Create container ----
   # for simulation results and evaluation
   # for MM model:
@@ -313,26 +315,78 @@ for (ddd in 1:3){ # EHE's are analyzed one after the other
       # ... bootstrapping ----
       # by default, bootstrapping is not performed due to convergence problems of too many samples, in particular of AP
       #ifelse(enzyme_ddd == "AP", bootstrap_i <- FALSE, bootstrap_i <- TRUE)
-      bootstrap_i = FALSE
+      bootstrap_i = TRUE
       if (bootstrap_i){
-        bootstrap_i_inh <-  nlsBoot(drm_i_inh, niter = 999) # bootstrapped parameter estimation of 3P model
-        bootstrap_inh_est <- rbind(bootstrap_inh_est, data.frame(Enzyme = enzyme_ddd, # Name of enzyme
-                                                                 sample = df_i$ID[1], # respective sample
-                                                                 Vmax.boot = bootstrap_i_inh$estiboot[1,1],
-                                                                 Vmax.boot.SE = bootstrap_i_inh$estiboot[1,2],
-                                                                 Vmax.boot.median = bootstrap_i_inh$bootCI[1,1],
-                                                                 Vmax.boot.CIlow = bootstrap_i_inh$bootCI[1,2],# 2.5% quantile
-                                                                 Vmax.boot.CIhigh = bootstrap_i_inh$bootCI[1,3],# 97.5% quantile
-                                                                 Km.boot = bootstrap_i_inh$estiboot[2,1],
-                                                                 Km.boot.SE = bootstrap_i_inh$estiboot[2,2],
-                                                                 Km.boot.median = bootstrap_i_inh$bootCI[2,1],
-                                                                 Km.boot.CIlow = bootstrap_i_inh$bootCI[2,2], # 2.5% quantile
-                                                                 Km.boot.CIhigh = bootstrap_i_inh$bootCI[2,3],# 97.5% quantile
-                                                                 Ki.boot = bootstrap_i_inh$estiboot[3,1],
-                                                                 Ki.boot.SE = bootstrap_i_inh$estiboot[3,2],
-                                                                 Ki.boot.median = bootstrap_i_inh$bootCI[3,1],
-                                                                 Ki.boot.CIlow = bootstrap_i_inh$bootCI[3,2],# 2.5% quantile
-                                                                 Ki.boot.CIhigh = bootstrap_i_inh$bootCI[3,3]))# 97.5% quantile
+        n = 1000 # number of bootstrap samples
+        bootstrap_i_inh <- NULL; ll <- 0; ee = 0
+        while(is.null(bootstrap_i_inh)){ # repeat, if try is not successful (convergence problem)
+          try(bootstrap_i_inh <-  nlsBoot(drm_i_inh, niter = n), silent = TRUE) # bootstrapped parameter estimation of 3P model
+          ll <- ll + 1 # count tries
+          if (ll > 99){ break } # perform not more than 100 tries
+        }
+        if (ll < 100){
+          bootstrap_i_inh_coefboot <- bootstrap_i_inh$coefboot
+        }else{ # if 1000 boot samples could not be generated in one step, try it in separated steps
+          bootstrap_i_inh_coefboot <- NULL
+          for (eee in 1:100){ # perform not more than 100 tries
+            try(bootstrap_i_inh_coefboot <- rbind(bootstrap_i_inh_coefboot,
+                                                  nlsBoot(drm_i_inh, niter = 100)$coefboot), # try only 100 once
+                silent = TRUE)
+            if (!is.null(bootstrap_i_inh_coefboot)){
+              if(dim(bootstrap_i_inh_coefboot)[1] == 1000) { break } # break, when sufficient boot samples are given
+            }
+            ee = ee + 1
+          }
+        }
+        if (ee > 99){ # if given, report abortion of bootstrapping and enter NA's
+          print(paste("SINH model bootstrapping ABORTED; returning NA's"))
+          bootstrap_inh_est <- rbind(bootstrap_inh_est, data.frame(Enzyme = enzyme_ddd, # Name of enzyme
+                                                                   sample = df_i$ID[1], # respective sample
+                                                                   Vmax.boot = NA, Vmax.boot.SE = NA, Vmax.boot.median = NA, Vmax.boot.CIlow = NA, Vmax.boot.CIhigh = NA,
+                                                                   Km.boot = NA, Km.boot.SE = NA, Km.boot.median = NA, Km.boot.CIlow = NA, Km.boot.CIhigh = NA,
+                                                                   Ki.boot = NA, Ki.boot.SE = NA, Ki.boot.median = NA, Ki.boot.CIlow = NA, Ki.boot.CIhigh = NA,
+                                                                   Rmax.boot.mean = NA, Rmax.boot.SE = NA, Rmax.boot.median = NA, Rmax.boot.CIlow = NA, Rmax.boot.CIhigh = NA,
+                                                                   SRmax05.boot.mean = NA, SRmax05.boot.SE = NA, SRmax05.boot.median = NA, SRmax05.boot.CIlow = NA, SRmax05.boot.CIhigh = NA))
+        }else{
+          if(ll < 100){print(paste("SINH model bootstrapping took", ll, "tries")) # report tries
+          }else{print(paste("SINH model bootstrappinging was performed piecewise"))} # report tries
+          Rmax_n <- Rmax(bootstrap_i_inh_coefboot[,"Vmax"], bootstrap_i_inh_coefboot[,"Km"], bootstrap_i_inh_coefboot[,"Ki"])
+          SRmax_i_05_n <- rep(NA, times = n)
+          for (nn in 1:n){
+            SRmax_i_05_n[nn] <- Sseq[match(TRUE, inh_f(S = Sseq,
+                                                       Vmax = bootstrap_i_inh_coefboot[nn,"Vmax"],
+                                                       Km = bootstrap_i_inh_coefboot[nn,"Km"],
+                                                       Ki = bootstrap_i_inh_coefboot[nn,"Ki"]) > Rmax_n[nn]/2)]
+          }
+          
+          bootstrap_inh_est <- rbind(bootstrap_inh_est, data.frame(Enzyme = enzyme_ddd, # Name of enzyme
+                                                                   sample = df_i$ID[1], # respective sample
+                                                                   Vmax.boot = mean(bootstrap_i_inh_coefboot[,"Vmax"]),
+                                                                   Vmax.boot.SE = sd(bootstrap_i_inh_coefboot[,"Vmax"]),
+                                                                   Vmax.boot.median = median(bootstrap_i_inh_coefboot[,"Vmax"]),
+                                                                   Vmax.boot.CIlow = sort(bootstrap_i_inh_coefboot[,"Vmax"])[25],# 2.5% quantile
+                                                                   Vmax.boot.CIhigh = sort(bootstrap_i_inh_coefboot[,"Vmax"])[975],# 97.5% quantile
+                                                                   Km.boot = mean(bootstrap_i_inh_coefboot[,"Km"]),
+                                                                   Km.boot.SE = sd(bootstrap_i_inh_coefboot[,"Km"]),
+                                                                   Km.boot.median = median(bootstrap_i_inh_coefboot[,"Km"]),
+                                                                   Km.boot.CIlow = sort(bootstrap_i_inh_coefboot[,"Km"])[25], # 2.5% quantile
+                                                                   Km.boot.CIhigh = sort(bootstrap_i_inh_coefboot[,"Km"])[975],# 97.5% quantile
+                                                                   Ki.boot = mean(bootstrap_i_inh_coefboot[,"Ki"]),
+                                                                   Ki.boot.SE = sd(bootstrap_i_inh_coefboot[,"Ki"]),
+                                                                   Ki.boot.median = median(bootstrap_i_inh_coefboot[,"Ki"]),
+                                                                   Ki.boot.CIlow = sort(bootstrap_i_inh_coefboot[,"Ki"])[25],# 2.5% quantile
+                                                                   Ki.boot.CIhigh = sort(bootstrap_i_inh_coefboot[,"Ki"])[975],# 97.5% quantile
+                                                                   Rmax.boot.mean = mean(Rmax_n), # analogous to calculations presented in 'estiboot'
+                                                                   Rmax.boot.SE = sd(Rmax_n), # analogous to calculations presented in 'estiboot'
+                                                                   Rmax.boot.median = median(Rmax_n),
+                                                                   Rmax.boot.CIlow = sort(Rmax_n)[25],# 2.5% quantile
+                                                                   Rmax.boot.CIhigh = sort(Rmax_n)[975],# 97.5% quantile
+                                                                   SRmax05.boot.mean = mean(SRmax_i_05_n), # analogous to calculations presented in 'estiboot'
+                                                                   SRmax05.boot.SE = sd(SRmax_i_05_n), # analogous to calculations presented in 'estiboot'
+                                                                   SRmax05.boot.median = median(SRmax_i_05_n),
+                                                                   SRmax05.boot.CIlow = sort(SRmax_i_05_n)[25],# 2.5% quantile
+                                                                   SRmax05.boot.CIhigh = sort(SRmax_i_05_n)[975]))# 97.5% quantile
+          }
       }
     }
     
